@@ -1,0 +1,29 @@
+services:
+
+  metadata-db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: arxiv_metadata
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - metadata_data:/var/lib/postgresql/data
+
+
+  vector-db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: arxiv_vectors
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - vector_data:/var/lib/postgresql/data
+
+
+volumes:
+  metadata_data:
+  vector_data:

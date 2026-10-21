@@ -3,11 +3,11 @@ import time
 from prefect import flow, task
 from prefect.logging import get_run_logger
 
-from arxiv_rag.arxiv.client import (
+from arxiv_rag.ingestion.client import (
     fetch_page as fetch_arxiv_page,
 )
 
-from arxiv_rag.db.metadata import (
+from arxiv_rag.db.metadata.papers import (
     insert_papers,
 )
 

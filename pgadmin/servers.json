@@ -1,0 +1,22 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "arxiv_metadata",
+      "Group": "arxiv-rag",
+      "Host": "metadata-db",
+      "Port": 5432,
+      "MaintenanceDB": "arxiv_metadata",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "arxiv_vectors",
+      "Group": "arxiv-rag",
+      "Host": "vector-db",
+      "Port": 5432,
+      "MaintenanceDB": "arxiv_vectors",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}

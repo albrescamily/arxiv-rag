@@ -2,14 +2,10 @@ import json
 
 from sqlalchemy import text
 
-from arxiv_rag.db.connection import (
-    metadata_engine,
-)
+from arxiv_rag.db.metadata.connection import metadata_engine
 
 
-def prepare_paper(
-    paper: dict,
-) -> dict:
+def prepare_paper(paper: dict,) -> dict:
 
     paper = paper.copy()
 
@@ -24,9 +20,7 @@ def prepare_paper(
     return paper
 
 
-def insert_papers(
-    papers: list[dict],
-):
+def insert_papers(papers: list[dict],):
 
     if not papers:
         return

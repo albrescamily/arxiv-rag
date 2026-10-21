@@ -33,41 +33,21 @@ def fetch_page(search_query: str,start: int,batch_size: int) -> dict:
         "sortOrder": "ascending",
     }
 
-    response = requests.get(
-        BASE_URL,
-        params=params,
-        timeout=(5, 30),
-    )
+    response = requests.get(BASE_URL,params=params,timeout=(5, 30),)
 
     response.raise_for_status()
 
-    feed = feedparser.parse(
-        response.content
-    )
+    feed = feedparser.parse(response.content)
 
     if feed.bozo:
-        raise ValueError(
-            f"Malformed feed: "
-            f"{feed.bozo_exception}"
-        )
+        raise ValueError(f"Malformed feed: "f"{feed.bozo_exception}")
 
-    if (
-        len(feed.entries) == 1
-        and "api/errors" in feed.entries[0].id
-    ):
-        raise ValueError(
-            "arXiv rejected query: "
-            f"{feed.entries[0].summary}"
-        )
+    if (len(feed.entries) == 1 and "api/errors" in feed.entries[0].id):
+        raise ValueError("arXiv rejected query: "f"{feed.entries[0].summary}")
 
-    total = int(
-        feed.feed.opensearch_totalresults
-    )
+    total = int(feed.feed.opensearch_totalresults)
 
-    papers = [
-        parse_entry(entry)
-        for entry in feed.entries
-    ]
+    papers = [parse_entry(entry)for entry in feed.entries]
 
     return {
         "papers": papers,

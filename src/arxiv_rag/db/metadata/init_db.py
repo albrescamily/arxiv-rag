@@ -5,7 +5,7 @@ from arxiv_rag.db.metadata.connection import (
 )
 
 
-SCHEMA_PATH = Path(__file__).with_name("metadata_schema.sql")
+SCHEMA_PATH = Path(__file__).with_name("tables.sql")
 
 
 def create_metadata_schema():

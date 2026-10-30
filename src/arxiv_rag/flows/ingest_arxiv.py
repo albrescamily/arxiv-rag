@@ -11,6 +11,27 @@ from arxiv_rag.db.metadata.papers import (
     insert_papers,
 )
 
+from datetime import datetime, timedelta, timezone
+
+ARXIV_DATE = "%Y%m%d%H%M"
+
+
+def recent_window(days: int = 5, now: datetime | None = None) -> tuple[datetime, datetime]:
+
+    now = now or datetime.now(timezone.utc)
+
+    return now - timedelta(days=days), now
+
+
+
+def build_query(categories: str, start: datetime, end: datetime) -> str:
+
+    return (
+        f"({categories}) AND submittedDate:"
+        f"[{start.strftime(ARXIV_DATE)} TO {end.strftime(ARXIV_DATE)}]"
+    )
+
+
 
 @task(
     retries=3,
@@ -139,14 +160,18 @@ def ingestion_flow(search_query: str, batch_size: int = 10, max_papers: int = 50
 
 if __name__ == "__main__":
 
-    query = (
+    categories = (
         "cat:cs.AI OR "
         "cat:cs.LG OR "
         "cat:cs.CL"
     )
 
+
+    start, end = recent_window()
+
+
     ingestion_flow(
-        search_query=query,
+        search_query=build_query(categories,start,end),
         batch_size=5,
         max_papers=20,
     )

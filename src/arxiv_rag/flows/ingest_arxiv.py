@@ -1,19 +1,24 @@
+import math
 import time
+from datetime import datetime, timedelta, timezone
 
 from prefect import flow, task
 from prefect.logging import get_run_logger
 
-from arxiv_rag.ingestion.client import (
-    fetch_page as fetch_arxiv_page,
-)
+from arxiv_rag.ingestion.client import (fetch_page as fetch_arxiv_page,)
+from arxiv_rag.db.metadata.papers import (insert_papers)
 
-from arxiv_rag.db.metadata.papers import (
-    insert_papers,
-)
 
-from datetime import datetime, timedelta, timezone
+ARXIV_MAX_RESULTS = 30_000
 
-ARXIV_DATE = "%Y%m%d%H%M"
+ARXIV_PAGE_LIMIT = 1_000
+
+
+def next_batch_size(remaining: int, page_limit: int = ARXIV_PAGE_LIMIT) -> int:
+
+    pages = math.ceil(remaining / page_limit)
+
+    return math.ceil(remaining / pages)
 
 
 def recent_window(days: int = 5, now: datetime | None = None) -> tuple[datetime, datetime]:
@@ -28,9 +33,8 @@ def build_query(categories: str, start: datetime, end: datetime) -> str:
 
     return (
         f"({categories}) AND submittedDate:"
-        f"[{start.strftime(ARXIV_DATE)} TO {end.strftime(ARXIV_DATE)}]"
+        f"[{start.strftime("%Y%m%d%H%M")} TO {end.strftime("%Y%m%d%H%M")}]"
     )
-
 
 
 @task(
@@ -85,77 +89,63 @@ def load_metadata(papers: list[dict]):
     name="arxiv-ingestion",
     log_prints=True,
 )
-def ingestion_flow(search_query: str, batch_size: int = 10, max_papers: int = 50, wait_time: int = 3):
+def ingestion_flow(search_query: str, page_limit: int = ARXIV_PAGE_LIMIT, max_papers: int = 10_000, wait_time: int = 3):
 
     logger = get_run_logger()
 
+    if max_papers > ARXIV_MAX_RESULTS:
+        raise ValueError(
+            f"max_papers={max_papers} is above the arXiv API limit "
+            f"of {ARXIV_MAX_RESULTS}. Split the window instead."
+        )
+
+    if not 1 <= page_limit <= 2_000:
+        raise ValueError(f"page_limit={page_limit} must be between 1 and 2000.")
+
     start = 0
-    processed = 0
     total_available = None
 
-    while processed < max_papers:
-
-        remaining = (
-            max_papers - processed
-        )
-
-        current_batch_size = min(
-            batch_size,
-            remaining,
-        )
+    while True:
+        if total_available is None:
+            batch_size = page_limit
+        else:
+            batch_size = next_batch_size(total_available - start, page_limit)
 
         result = fetch_page(
             search_query=search_query,
             start=start,
-            batch_size=current_batch_size,
+            batch_size=batch_size,
         )
 
         papers = result["papers"]
 
         if total_available is None:
 
-            total_available = (
-                result["total"]
-            )
+            total_available = result["total"]
 
-            logger.info(
-                f"arXiv query has "
-                f"{total_available} results"
-            )
+            logger.info(f"arXiv query has {total_available} results")
+
+            if total_available > max_papers:
+                raise RuntimeError(
+                    f"Window has {total_available} papers, above "
+                    f"max_papers={max_papers}. Shrink the window or raise the cap."
+                )
 
         if not papers:
-            logger.info(
-                "No papers returned."
-            )
+            logger.info("No papers returned.")
             break
 
-        load_metadata(
-            papers
-        )
+        load_metadata(papers)
 
-        count = len(papers)
+        start += len(papers)
 
-        start += count
-        processed += count
-
-        logger.info(
-            f"Processed: "
-            f"{processed}/{max_papers}"
-        )
+        logger.info(f"Processed: {start}/{total_available}")
 
         if start >= total_available:
-            logger.info(
-                "All available papers "
-                "processed."
-            )
+            logger.info("All available papers processed.")
             break
 
-        if processed >= max_papers:
-            break
-
-        time.sleep(
-            wait_time
-        )
+        time.sleep(wait_time)
 
 
 if __name__ == "__main__":
@@ -169,9 +159,6 @@ if __name__ == "__main__":
 
     start, end = recent_window()
 
-
     ingestion_flow(
-        search_query=build_query(categories,start,end),
-        batch_size=5,
-        max_papers=20,
+        search_query=build_query(categories, start, end),
     )

@@ -1,13 +1,40 @@
+import re
+
 import feedparser
 import requests
 
 
 BASE_URL = "https://export.arxiv.org/api/query"
 
+ARXIV_ID = re.compile(r"https?://arxiv\.org/abs/(?P<id>.+?)v(?P<version>\d+)")
+
+
+def parse_arxiv_id(raw: str) -> tuple[str, int]:
+
+    match = ARXIV_ID.fullmatch(raw)
+
+    if match is None:
+        raise ValueError(f"Unexpected arXiv id: {raw!r}")
+
+    return match["id"], int(match["version"])
+
+
+def parse_pdf_url(entry) -> str:
+
+    for link in entry.links:
+        if link.get("title") == "pdf":
+            return link.href
+
+    raise ValueError(f"No PDF link for {entry.id!r}")
+
 
 def parse_entry(entry) -> dict:
+
+    arxiv_id, version = parse_arxiv_id(entry.id)
+
     return {
-        "arxiv_id": entry.id.split("/abs/")[-1],
+        "arxiv_id": arxiv_id,
+        "version": version,
         "title": entry.title.strip(),
         "summary": entry.summary.strip(),
         "published": entry.published,
@@ -20,6 +47,8 @@ def parse_entry(entry) -> dict:
             tag["term"]
             for tag in entry.tags
         ],
+        "primary_category": entry.arxiv_primary_category["term"],
+        "pdf_url": parse_pdf_url(entry),
     }
 
 

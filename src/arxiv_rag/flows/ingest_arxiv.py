@@ -1,4 +1,3 @@
-import math
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -16,9 +15,7 @@ ARXIV_PAGE_LIMIT = 1_000
 
 def next_batch_size(remaining: int, page_limit: int = ARXIV_PAGE_LIMIT) -> int:
 
-    pages = math.ceil(remaining / page_limit)
-
-    return math.ceil(remaining / pages)
+    return max(0, min(page_limit, remaining))
 
 
 def recent_window(days: int = 5, now: datetime | None = None) -> tuple[datetime, datetime]:
@@ -106,10 +103,13 @@ def ingestion_flow(search_query: str, page_limit: int = ARXIV_PAGE_LIMIT, max_pa
     total_available = None
 
     while True:
-        if total_available is None:
-            batch_size = page_limit
-        else:
-            batch_size = next_batch_size(total_available - start, page_limit)
+
+        target = max_papers if total_available is None else total_available
+
+        batch_size = next_batch_size(target - start, page_limit)
+
+        if batch_size == 0:
+            break
 
         result = fetch_page(
             search_query=search_query,
@@ -151,9 +151,11 @@ def ingestion_flow(search_query: str, page_limit: int = ARXIV_PAGE_LIMIT, max_pa
 if __name__ == "__main__":
 
     categories = (
-        "cat:cs.AI OR "
-        "cat:cs.LG OR "
-        "cat:cs.CL"
+        "cat:cs.AI OR "   # artificial intelligence
+        "cat:cs.LG OR "   # machine learning
+        "cat:stat.ML OR " # machine learning (statistics side)
+        "cat:cs.CL OR "   # computation and language: where LLM papers live
+        "cat:cs.MA"       # multiagent systems
     )
 
 
